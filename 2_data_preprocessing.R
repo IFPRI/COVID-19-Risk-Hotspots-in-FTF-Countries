@@ -27,5 +27,35 @@ combineAgeRaster <- function(i, agroup, ff, gender, dir){
 
 
 # DHS
-dhs <- read.csv("data/DHS_biomarkers_region_level.csv", stringsAsFactors = FALSE)
+dhs <- read.csv("data/DHS_biomarkers_cluster_level.csv", stringsAsFactors = FALSE)
 View(dhs)
+
+
+# clean health sites
+# clean and save as shapefile for other applications
+hv <- hv[complete.cases(hv[,c("X","Y")]), c("X","Y","amenity")]
+# unique(hv$amenity)
+hv1 <- hv[hv$amenity == "hospital",]
+hv2 <- hv[hv$amenity == "clinic",]
+hv3 <- hv[hv$amenity %in% c("pharmacy","doctors"),]
+
+write.csv(hv1, "data/bgd_hospital.csv", row.names = FALSE)
+write.csv(hv2, "data/bgd_clinic.csv", row.names = FALSE)
+write.csv(hv3, "data/bgd_pharmacy_doctors.csv", row.names = FALSE)
+
+projcrs <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
+hvsf <- st_as_sf(x = hv,                         
+                 coords = c("X", "Y"),
+                 crs = projcrs)
+
+st_write(hvsf, file.path(dir, "health_facilities_all.shp"))
+
+
+
+v <- getData("GADM", country = "BGD", level = 2, path = dir)
+
+r1 <- crop(r, v)
+r1 <- mask(r1,v)
+plot(r1)
+
+
