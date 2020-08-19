@@ -60,7 +60,7 @@ getDataTif <- function(i, ds, year, dir){
 }
 
 # directory
-dir <- "C:\\Users\\anibi\\Documents\\work\\covid_hotspot"
+# dir <- "C:\\Users\\anibi\\Documents\\work\\covid_hotspot"
 dir <- "/share/spatial02/users/anighosh/covid"
 dir.create(dir, FALSE, TRUE)
 
