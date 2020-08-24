@@ -37,6 +37,17 @@ getCovariates <- function(country, dir, year){
   hds <- hsites[[1]]
   # try all
   lapply(1:hds$data$num_resources, trydownload, hds, dir2)
+  
+  # where to save results
+  dir3 <- file.path(dir, country, "covid_cases")
+  dir.create(dir3, FALSE, TRUE)
+  
+  # get sub-national covid stat
+  covcases <- search_datasets(paste(country," - covid-19 data"), rows = 5)
+  # generally the first one is the one we are looking for
+  cds <- covcases[[1]]
+  # try all
+  lapply(1:cds$data$num_resources, trydownload, cds, dir3)
 }
 
 
@@ -70,7 +81,7 @@ countries <- c("Bangladesh", "Ethiopia", "Ghana", "Guatemala",
                "Niger", "Nigeria", "Senegal", "Uganda")
 
 # run 1
-# getCovariates("Senegal", dir, 2020)
+# getCovariates("Bangladesh", dir, 2020)
 
 # run all
 lapply(countries, getCovariates, dir, 2020)
