@@ -2,7 +2,7 @@ library(raster)
 library(RColorBrewer)
 library(gridExtra)
 
-makePlotISO <- function(i, ciso, dir){
+makePlotISOPopRisk <- function(i, ciso, dir){
   country <- ciso[i,"country"]
   iso <- ciso[i,"iso"]
   
@@ -124,7 +124,7 @@ iso3 <- c("BGD", "ETH", "GHA", "GTM", "HND", "KEN", "MLI", "NPL", "NER", "NGA", 
 ciso <- data.frame(country = countries, iso = iso3, stringsAsFactors = FALSE)
 
 # makePlotISO(2, ciso, dir)
-lapply(1:nrow(ciso), makePlotISO, ciso, dir)
+lapply(1:nrow(ciso), makePlotISOPopRisk, ciso, dir)
 
 lapply(1:nrow(ciso), makePlotISOfacilityRisk, ciso, dir)
 

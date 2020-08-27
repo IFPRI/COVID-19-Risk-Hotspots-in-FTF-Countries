@@ -59,11 +59,11 @@ getPopRiskScore <- function(i, ciso, dir, gender, overwrite){
     rw <- lapply(rs, createHRScore, risktable)
     rw <- rast(rw)
     # sum all risk
-    nr <- app(rw, sum, nodes = 4)
+    nr <- app(rw, sum, nodes = 4, na.rm = TRUE)
     
     # denominator of the weighted mean (sum(sex_pop))
     dr <- rast(rs)
-    dr <- app(dr, sum, nodes = 4)
+    dr <- app(dr, sum, nodes = 4, na.rm = TRUE)
     
     # final weighted mean risk for age
     rskag <- nr/dr

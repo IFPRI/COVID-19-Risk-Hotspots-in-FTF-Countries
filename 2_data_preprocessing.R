@@ -21,10 +21,11 @@ combineAgeRaster <- function(i, agroup, gender, dir, country, overwrite){
     # all age of files
     fg <- as.numeric(unlist(lapply(strsplit(basename(f), "_"), "[[", 3)))
     # which are falling within the range 
-    fs <- f[fg >= ag$low & fg < ag$high] # confirm age group with Jawoo
+    fs <- f[fg >= ag$low & fg < ag$high] # confirmed age group with Jawoo
     r <- rast(fs)
-    r <- app(r, fun=sum, nodes=4)
-    r <- aggregate(r, fact=10, fun = "sum", filename=outname, nodes=4, overwrite = overwrite)
+    # order of operation helps with faster processing
+    r <- aggregate(r, fact=10, fun="sum", na.rm=TRUE)
+    r <- app(r, fun=sum, nodes=5, na.rm=TRUE, filename=outname, overwrite=overwrite)
   }
 }
 
@@ -45,3 +46,14 @@ for (country in countries){
 }
 
 
+# check the results
+# summary stat for the results
+# r <- rast(ff)
+# r1 <- aggregate(r, fact=10, fun="sum", na.rm = TRUE)
+# # check total pop
+# # r2 <- app(r1, fun=sum, nodes=4)
+# x1 <- global(r1, "sum", na.rm = TRUE)
+# sum(x1$sum)
+# 
+# x <- global(r, "sum", na.rm = TRUE)
+# sum(x$sum)
