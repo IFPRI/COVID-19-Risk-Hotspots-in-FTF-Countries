@@ -37,19 +37,21 @@ createHRScore <- function(f, risktable){
   return(r*cw)
 }
 
-
-getPopRiskScore <- function(i, ciso, dir, gender, overwrite){
+getPopRiskScore <- function(i, ciso, indir, outdir, gender, overwrite){
   country <- ciso[i,"country"]
   iso <- ciso[i,"iso"]
   
   cat("processing ", country, "\n")
   
-  datadir <- file.path(dir, country, "processed")
-  rr <- list.files(datadir, pattern = "_1km.tif$", full.names = TRUE)
+  # directory
+  datadir <- file.path(indir, iso)
+  outdir <- file.path(outdir, iso)
+  dir.create(outdir, FALSE, TRUE)
+  
+  # list of input files
+  rr <- list.files(datadir, pattern = glob2rx(paste0(iso,"*_pop_agegroup_*.tif")), full.names = TRUE)
   
   # output file name
-  outdir <- file.path(dir, "riskscores")
-  dir.create(outdir, FALSE, TRUE)
   outname <- file.path(outdir, paste0(iso,"_pop_",gender,"_riskscore.rds"))
   
   if(!(file.exists(outname))|overwrite){
@@ -141,7 +143,9 @@ getHeathFacilityRiskScore <- function(i, ciso, dir, overwrite){
 
 
 # input
-dir <- "/share/spatial02/users/anighosh/covid"
+# indir <- "/share/spatial02/users/anighosh/covid/worldpop/processed"
+indir <- "C:/Users/anibi/Documents/work/covid_hotspot/data/processed"
+outdir <- "C:/Users/anibi/Documents/work/covid_hotspot/data/output"
 
 # country
 countries <- c("Bangladesh", "Ethiopia", "Ghana", "Guatemala", 
