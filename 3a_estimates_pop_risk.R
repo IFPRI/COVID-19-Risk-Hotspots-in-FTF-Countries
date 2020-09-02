@@ -1,6 +1,4 @@
 library(terra)
-library(plyr)
-library(sf)
 
 # combine worldpop agegroup using the nature paper
 low <- c(18,40,50,60,70,80)
@@ -38,15 +36,15 @@ createHRScore <- function(f, risktable){
   return(r*cw)
 }
 
-getPopRiskScore <- function(i, ciso, indir, odir, gender, overwrite){
+getPopRiskScore <- function(i, ciso, dir, gender, overwrite){
   country <- ciso[i,"country"]
   iso <- ciso[i,"iso"]
   
   cat("processing ", country, "\n")
   
   # directory
-  datadir <- file.path(indir, iso)
-  outdir <- file.path(outdir, iso)
+  datadir <- file.path(dir, "processed", iso)
+  outdir <- file.path(dir, "output" ,iso)
   dir.create(outdir, FALSE, TRUE)
   
   # list of input files
@@ -63,7 +61,18 @@ getPopRiskScore <- function(i, ciso, indir, odir, gender, overwrite){
     rw <- lapply(rs, createHRScore, risktable)
     rw <- rast(rw)
     
-    # denominator of the weighted mean (sum(sex_pop)) for the country population in that age group
+    # compute risk by district
+    vsp <- raster::getData("GADM", country = iso, level = 2, path = datadir)
+    v <- vect(vsp)
+    
+    # not weighted risk
+    frisknw <- app(rw, sum, nodes = 4, na.rm = TRUE)
+    # summary stat for each district
+    # non-weighted
+    rskwtn <- extract(frisknw, v, fun = sum, na.rm = TRUE)
+    
+    # weighted risk
+    # denominator for the weighted mean (sum(sex_pop)) => total population for the country population in that age group
     dr <- rast(rs)
     spop <- global(dr, fun = "sum", na.rm = TRUE)
     
@@ -73,33 +82,23 @@ getPopRiskScore <- function(i, ciso, indir, odir, gender, overwrite){
     # sum all risk
     frisk <- app(frisk, sum, nodes = 4, na.rm = TRUE)
     
-    # compute risk by district
-    vsp <- raster::getData("GADM", country = iso, level = 2, path = datadir)
-    v <- vect(vsp)
-    
+
     # summary stat for each district
-    
     # weighted
-    rskwt <- extract(frisk, v, fun = mean, na.rm = TRUE)
-    
-    # not weighted
-    frisknw <- app(rw, sum, nodes = 4, na.rm = TRUE)
-    rskwtn <- extract(frisknw, v, fun = mean, na.rm = TRUE)
+    rskwt <- extract(frisk, v, fun = sum, na.rm = TRUE)
     
     # save result
-    vs <- vsp[,c("NAME_1", "NAME_2")]
+    vs <- vsp[,c("NAME_1","NAME_2")]
     vs$poprisk_no_wt <- rskwtn[,2] 
     vs$poprisk_wt <- rskwt[,2]
-    
+    names(vs) <- c("NAME_1", "NAME_2", paste0(c("poprisk_no_wt_","poprisk_wt_"), gender))
     write.csv(vs@data, outname, row.names = FALSE)
   }
-    # spplot(vs,zcol="poprisk_wt")
 }
 
 # input
-# indir <- "/share/spatial02/users/anighosh/covid/worldpop/processed"
-indir <- "C:/Users/anibi/Documents/work/covid_hotspot/data/processed"
-odir <- "C:/Users/anibi/Documents/work/covid_hotspot/data/output"
+# dir <- "/share/spatial02/users/anighosh/covid/worldpop/"
+dir <- "C:/Users/anibi/Documents/work/covid_hotspot/data"
 
 # country
 countries <- c("Bangladesh", "Ethiopia", "Ghana", "Guatemala", 

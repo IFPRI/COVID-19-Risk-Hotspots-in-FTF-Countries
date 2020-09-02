@@ -127,7 +127,7 @@ countries <- c("Bangladesh", "Ethiopia", "Ghana", "Guatemala",
 iso3 <- c("BGD", "ETH", "GHA", "GTM", "HND", "KEN", "MLI", "NPL", "NER", "NGA", "SEN", "UGA")
 
 # dir <- "/share/spatial02/users/anighosh/covid/worldpop/processed"
-# indir <- "C:/Users/anibi/Documents/work/covid_hotspot/data/processed"
+indir <- "C:/Users/anibi/Documents/work/covid_hotspot/data/processed"
 
 for (iso in iso3){
   cat("processing", iso, "\n")
@@ -136,8 +136,35 @@ for (iso in iso3){
   }
 }
 
+##################################################################################################
 # create agegroup (15-45) for female with child bearning age that would be used for the BMI
-outname <- file.path(datadir, paste0(iso,"_women_agegroup_15_45_1km.tif"))
+library(terra)
+
+femaleBMIAgeRaster <- function(iso, indir, overwrite){
+  cat("processing", iso, "\n")
+  datadir <- file.path(indir, iso)
+  
+  ff <- list.files(datadir, pattern = glob2rx(paste0(iso,"_f_","*2020_1km.tif")), full.names = TRUE)
+  
+  # don't use anything other than the 1km one
+  ff <- grep("1km", ff, value = TRUE)
+  
+  # output file name
+  outname <- file.path(datadir, paste0(iso,"_women_agegroup_15_45_1km.tif"))
+  
+  if(!(file.exists(outname))|overwrite){
+    fg <- as.numeric(unlist(lapply(strsplit(basename(ff), "_"), "[[", 3)))
+    # which are falling within the range 
+    fs <- ff[fg >= 15 & fg < 45] # confirmed age group with Jawoo
+    rin <- rast(fs)
+    r <- app(rin, fun=sum, nodes=5, na.rm=TRUE, filename=outname, overwrite=overwrite)
+  }
+}
+
+indir <- "C:/Users/anibi/Documents/work/covid_hotspot/data/processed"
+iso3 <- c("BGD", "ETH", "GHA", "GTM", "HND", "KEN", "MLI", "NPL", "NER", "NGA", "SEN", "UGA")
+
+lapply(iso3, femaleBMIAgeRaster, indir, overwrite=TRUE)
 
 ##################################################################################################
 # compute and save population statistics
@@ -174,31 +201,3 @@ getStatPop <- function(iso, indir, outdir){
 # outdir <- "C:/Users/anibi/Documents/work/covid_hotspot/data/output"
 lapply(iso3, getStatPop, indir, outdir)
 
-#####################################################################################################
-# get health sites
-library(raster)
-
-getStatHealthSites <- function(iso, hv, datadir, outdir){
-  cat("processing", iso, "\n")
-  datadir <- file.path(indir, iso)
-  outdir <- file.path(outdir, iso)
-  dir.create(outdir, FALSE, TRUE)
-  
-  # compute stat by district
-  vsp <- raster::getData("GADM", country = iso, level = 2, path = datadir)
-  v <- vect(vsp)
-  
-  # output csv filename
-  outname <- file.path(outdir, "pop_agegroup_summary.csv")
-  
-  # summary stat for each district
-  popstat <- extract(rr, v, fun = sum, na.rm = TRUE)
-  # drop ID column
-  popstat <- popstat[, -1]
-  colnames(popstat) <- gsub(".tif","",basename(ff)) 
-  # save result
-  popstat <- data.frame(vsp[,c("NAME_1", "NAME_2")], area_polygons_sqkm = area(v)/1000000, popstat, stringsAsFactors = FALSE)
-  write.csv(popstat, outname, row.names = FALSE)
-}
-
-hv <- shapefile("C:\\Users\\anibi\\Documents\\work\\covid_hotspot\\data\\vector\\healthsites\\World-node.shp")
