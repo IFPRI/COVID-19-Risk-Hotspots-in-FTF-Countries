@@ -19,7 +19,7 @@ saveAllRisk <- function(i, ciso, dir){
   # all risks
   ff <- list.files(file.path(dir, "output", iso), pattern = "*.csv", full.names = TRUE)
   ff <- sort(ff)
-  fd <- lapply(ff, read.csv, stringsAsFactors = FALSE)
+  fd <- lapply(ff, read.csv, stringsAsFactors = FALSE, fileEncoding = "latin1")
   
   # merge risk dataframes by admin names
   ffd <- Reduce(function(x, y) merge(x, y, all.x = TRUE, by=c("NAME_1","NAME_2")), fd, accumulate = FALSE)
@@ -34,7 +34,12 @@ saveAllRisk <- function(i, ciso, dir){
   write.csv(vsf@data, file = file.path(odir, paste0(iso, "_all_risk.csv")), row.names = FALSE)
   
   vsf <- st_as_sf(vsf)
-  st_write(vsf, file.path(odir, paste0(iso, "_all_risk.geojson")), overwrite = TRUE, append = FALSE)
+  
+  # delete_dsn doesn't work for geojson driver
+  oname <- file.path(odir, paste0(iso, "_all_risk.geojson"))
+  
+  unlink(oname)
+  st_write(vsf, oname)
 }
 
 #############################################################################################
@@ -49,15 +54,18 @@ ciso <- data.frame(country = countries, iso = iso3, stringsAsFactors = FALSE)
 
 lapply(1:nrow(ciso), saveAllRisk, ciso, dir)
 
+# just one
+# lapply(9, saveAllRisk, ciso, dir)
+
 #############################################################################################
 # merge geojson objects to create a single one
 jj <- list.files(file.path(dir, "output/final"), pattern = ".geojson", full.names = TRUE)
 # read all except NIGER
-jj <- grep("NER", jj, invert = TRUE, value = TRUE)
+# jj <- grep("NER", jj, invert = TRUE, value = TRUE)
 
 sj <- lapply(jj, st_read)
 asj <- do.call(rbind, sj)
-st_write(asj, file.path(dir, "output/final/all_countries_risk_exNER.geojson"))
+st_write(asj, file.path(dir, "output/final/all_countries_risk.geojson"))
 
 # zip everything for share
 zz <- list.files(file.path(dir, "output/final"), pattern = ".geojson", full.names = TRUE)

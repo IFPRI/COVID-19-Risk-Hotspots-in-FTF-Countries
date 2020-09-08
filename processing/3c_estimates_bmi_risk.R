@@ -40,7 +40,7 @@ getBMIRisk <- function(iso, dir){
   
   # breaks above if all lat lon are missing
   
-  # multiply by HR for eac age group
+  # multiply by HR for each age group
   bmis$obese30_35_risk <- bmis$obese30_35*1.05*bmis$n
   bmis$obese35_40_risk <- bmis$obese35_40*1.40*bmis$n
   bmis$obese40over_risk <- bmis$obese40over*1.92*bmis$n
@@ -81,7 +81,7 @@ getBMIRisk <- function(iso, dir){
   
   # summary stat for each district
   popstat <- extract(r, vct, fun = sum, na.rm = TRUE)
-  popstat <- data.frame(NAME_1 = vct$NAME_1, NAME_2 = vct$NAME_2, women_pop_15_45 = popstat[,2], stringsAsFactors = FALSE)
+  popstat <- data.frame(NAME_1 = v$NAME_1, NAME_2 = v$NAME_2, women_pop_15_45 = popstat[,2], stringsAsFactors = FALSE)
   
   # standardize by women population
   bmiag <- merge(popstat, bmiag, by = c("NAME_1","NAME_2"), all.x = TRUE)
@@ -92,12 +92,12 @@ getBMIRisk <- function(iso, dir){
   # save as csv 
   # v <- merge(v, bmiag, all.x = TRUE, by = "NAME_2")
   write.csv(bmiag, 
-            file.path(outdir, paste0(iso, "_bmirisk_values.csv")), row.names = FALSE)
+            file.path(outdir, paste0(iso, "_bmirisk_values.csv")), row.names = FALSE, fileEncoding = "latin1")
 }
 
 
 dir <- "C:/Users/anibi/Documents/work/covid_hotspot/data"
-iso3 <- c("BGD", "ETH", "GHA", "GTM", "HND", "KEN", "MLI", "NPL", "NER", "NGA", "SEN", "UGA")
+iso3 <- c("BGD", "ETH", "GHA", "GTM", "HND", "KEN", "MLI", "NPL", "NGA", "SEN", "UGA")
 
 # 
 # getBMIRisk(iso[5], indir, odir)
@@ -111,7 +111,80 @@ lapply(iso3, execFunction, dir)
 # plan(multisession, workers = 4)
 # future_lapply(iso, getBMIRisk, indir, odir)
 
+##########################################################################################################
+# Process NIGER seperately since the DHS data doesn't contain any lat lon information
+# also the GADM names didn't match with the DHS names, but Jawoo found out a dataset that might work; same as GADM level 1
 
+getBMIRiskbyADM <- function(iso, dir){
+  cat("processing", iso, "\n")
+  # directory
+  datadir <- file.path(dir, "processed", iso)
+  outdir <- file.path(dir, "output" ,iso)
+  dir.create(outdir, FALSE, TRUE)
+  
+  # get boudaries
+  cc <- ccodes()
+  v <- getData("GADM", country = iso, level = 2, path = datadir)
+  
+  # iso2 code
+  iso2 <- cc$ISO2[cc$ISO3 == iso]
+  iso2 <- ifelse(iso2=="GT", "GU", iso2)
+  iso2 <- ifelse(iso2=="NE", "NI", iso2)
+  
+  # bmi based risk
+  bmi <- read.csv("data/DHS_bmi_cluster_level.csv", stringsAsFactors = FALSE)
+  
+  bmis <- bmi[bmi$country_code == iso2,]
+  
+  if(iso == "NER"){
+    bmis <- bmis[complete.cases(bmis[,c("region")]), c("region", "obese30_35","obese35_40","obese40over","n")]
+    bmis$region[bmis$region == "Tillaberi"] <- "Tillabéry" #GADM name matching
+  }
+  
+  # breaks above if all lat lon are missing
+  
+  # multiply by HR for each age group
+  bmis$obese30_35_risk <- bmis$obese30_35*1.05*bmis$n
+  bmis$obese35_40_risk <- bmis$obese35_40*1.40*bmis$n
+  bmis$obese40over_risk <- bmis$obese40over*1.92*bmis$n
+  
+  # compute sum across the admin
+  
+  bmiag <- bmis %>% group_by(region) %>%
+    summarise(obese30_35_risk = sum(obese30_35_risk, na.rm = TRUE),
+              obese35_40_risk = sum(obese35_40_risk, na.rm = TRUE),
+              obese40over_risk = sum(obese40over_risk, na.rm = TRUE))
+  
+  # total population women of child bearing age
+  r <- file.path(datadir, paste0(iso,"_women_agegroup_15_45_1km.tif"))
+  r <- rast(r)
+  # vect class
+  vct <- vect(v)
+  
+  # summary stat for each district
+  popstat <- extract(r, vct, fun = sum, na.rm = TRUE)
+  # terra operations, but saving the name from sp
+  popstat <- data.frame(NAME_1 = v$NAME_1, NAME_2 = v$NAME_2, women_pop_15_45 = popstat[,2], stringsAsFactors = FALSE)
+  
+  # popstat <- data.frame(NAME_1 = v$NAME_1, NAME_2 = v$NAME_2, women_pop_15_45 = popstat, stringsAsFactors = FALSE)
+  
+  # standardize by women population
+  # merge by admin 1 names, but divide by pop estimate to get admin 2 level risk
+  bmiag <- merge(popstat, bmiag, by.x = "NAME_1", by.y = "region", all.x = TRUE)
+  bmiag$obese30_35_risk_wt <- bmiag$obese30_35_risk/bmiag$women_pop_15_45
+  bmiag$obese35_40_risk_wt <- bmiag$obese35_40_risk/bmiag$women_pop_15_45
+  bmiag$obese40over_risk_wt <- bmiag$obese40over_risk/bmiag$women_pop_15_45
+  
+  # save as csv 
+  # v <- merge(v, bmiag, all.x = TRUE, by = "NAME_2")
+  write.csv(bmiag, 
+            file.path(outdir, paste0(iso, "_bmirisk_values.csv")), row.names = FALSE, fileEncoding = "latin1")
+}
+
+
+# process one country
+dir <- "C:/Users/anibi/Documents/work/covid_hotspot/data"
+getBMIRiskbyADM("NER", dir)
 
 
 # # plot result

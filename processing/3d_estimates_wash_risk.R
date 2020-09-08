@@ -1,13 +1,54 @@
 # wash score
 # https://cloud.ihme.washington.edu/s/bkH2X2tFQMejMxy
 
+# there was name matching issues with the csv statistics provided by ihme
+# so I decided to recompute the statistics from ihme raster data using GADM level 2 boundary
+library(terra)
+
+getWashScore <- function(iso, dir){
+  cat("processing wash score", iso, "\n")
+  
+  indir <- file.path(dir, "input")
+  datadir <- file.path(indir, "ihme")
+  odir <- file.path(dir, "output", iso)
+  dir.create(odir, FALSE, TRUE)
+  
+  toremove <- "IHME_LMIC_WASH_2000_2017_|_Y2020M06D02"
+  
+  # files
+  ff <- list.files(datadir, pattern = ".TIF", full.names = TRUE)
+  # read raster
+  rr <- rast(ff)
+  names(rr) <- gsub(toremove, "", names(rr))
+  
+  # admin boundaries
+  v <- getData("GADM", country = iso, level = 2, path = file.path(dir,"processed",iso))  
+  # vect class
+  vct <- vect(v)
+  
+  # summary stat for each district
+  wstat <- extract(rr, vct, fun = mean, na.rm = TRUE)
+  wstat <- wstat[,2:ncol(wstat)]
+  wstat <- 100 - wstat
+  colnames(wstat) <- paste0(colnames(wstat), "_no_access")
+  
+  wstat <- data.frame(NAME_1 = v$NAME_1, NAME_2 = v$NAME_2, wstat, stringsAsFactors = FALSE)
+  
+  outname <- file.path(dir, "output", iso, paste0(iso,"_wash_riskscore.csv"))
+  write.csv(wstat, outname, row.names = FALSE, fileEncoding = "latin1")
+}
+
 # download the zipped csv statistics
 # setup directories
 dir <- "C:/Users/anibi/Documents/work/covid_hotspot/data"
-indir <- file.path(dir, "input")
-odir <- file.path(dir, "output")
-datadir <- file.path(indir, "ihme")
-zdir <- file.path(datadir, "Data [CSV]", "Admin 2")
+
+iso3 <- c("BGD", "ETH", "GHA", "GTM", "HND", "KEN", "MLI", "NPL", "NER", "NGA", "SEN", "UGA")
+lapply(iso3, getWashScore, dir)
+
+# indir <- file.path(dir, "input")
+# odir <- file.path(dir, "output")
+# datadir <- file.path(indir, "ihme")
+# zdir <- file.path(datadir, "Data [CSV]", "Admin 2")
 
 # check if the urls are working
 # dir.create(datadir, FALSE, TRUE)
@@ -20,6 +61,10 @@ zdir <- file.path(datadir, "Data [CSV]", "Admin 2")
 # 
 # unzip(dfile, exdir = datadir)
 # 
+
+# f <- "https://cloud.ihme.washington.edu/s/bkH2X2tFQMejMxy/download?path=%2FW_PIPED%20-%20Access%20to%20piped%20water%20%5BGeoTIFF%5D%2FPercent&files=IHME_LMIC_WASH_2000_2017_W_PIPED_PERCENT_UPPER_2017_Y2020M06D02.TIF"
+# dw <- file.path(datadir, "IHME_LMIC_WASH_2000_2017_W_PIPED_PERCENT_UPPER_2017_Y2020M06D02.TIF")
+# download.file(f, dw, mode = "wb")
 
 # zfiles <- list.files(zdir, pattern = ".zip$", full.names = TRUE)
 # sapply(zfiles, unzip, exdir = zdir)
@@ -35,7 +80,7 @@ getDataAll <- function(f, countries){
   return(d)
 }
 
-splitDataISO <- function(i, ciso, dbase, odir){
+splitDataISO <- function(i, ciso, dbase, dir){
   country <- ciso[i,"country"]
   iso <- ciso[i,"iso"]
   db1 <- dbase[dbase$NAME_0 == country,]
@@ -49,8 +94,8 @@ splitDataISO <- function(i, ciso, dbase, odir){
   names(db1) <- paste0(names(db1), "_no_access")
   db1 <- data.frame(NAME_1 = nm1, NAME_2 = nm2, db1, stringsAsFactors = FALSE)
   
-  outname <- file.path(odir, iso, paste0(iso,"_wash_riskscore.csv"))
-  write.csv(db1, outname, row.names = FALSE)
+  outname <- file.path(dir, "output", iso, paste0(iso,"_wash_riskscore.csv"))
+  write.csv(db1, outname, row.names = FALSE, fileEncoding = "latin1")
 }
 
 # input
@@ -74,5 +119,19 @@ sapply(dd, dim)
 dbase <- do.call(cbind, dd)
 
 # save by country
-odir <- file.path(dir, "output")
-lapply(1:nrow(ciso), splitDataISO, ciso, dbase, odir)
+lapply(1:nrow(ciso), splitDataISO, ciso, dbase, dir)
+
+# now change the names that are messed due to encoding
+iso <- "NER"
+fname <- file.path(dir, "output", iso, paste0(iso,"_wash_riskscore.csv"))
+d <- read.csv(fname, stringsAsFactors = FALSE)
+d$NAME_1[d$NAME_1 == "TillabÃ©ry"] <- "Tillabéry"
+
+d$NAME_2[d$NAME_2 == "AguiÃ©"] <- "Aguié"
+d$NAME_2[d$NAME_2 == "FilinguÃ©"] <- "Filingué"
+d$NAME_2[d$NAME_2 == "GourÃ©"] <- "Gouré"
+d$NAME_2[d$NAME_2 == "MaÃ¯nÃ©-Soroa"] <- "Maïné-Soroa"
+d$NAME_2[d$NAME_2 == "IllÃ©la"] <- "Illéla"
+d$NAME_2[d$NAME_2 == "TÃ©ra"] <- "Téra"
+d$NAME_2[d$NAME_2 == "TillabÃ©ry"] <- "Tillabéry"
+write.csv(d, fname, row.names = FALSE, fileEncoding = "latin1")
