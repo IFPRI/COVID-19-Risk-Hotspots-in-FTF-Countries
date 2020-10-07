@@ -60,12 +60,14 @@ lapply(1:nrow(ciso), saveAllRisk, ciso, dir)
 #############################################################################################
 # merge geojson objects to create a single one
 jj <- list.files(file.path(dir, "output/final"), pattern = ".geojson", full.names = TRUE)
-# read all except NIGER
-# jj <- grep("NER", jj, invert = TRUE, value = TRUE)
+# read all except all countries
+jj <- grep("all_countries", jj, invert = TRUE, value = TRUE)
 
 sj <- lapply(jj, st_read)
 asj <- do.call(rbind, sj)
-st_write(asj, file.path(dir, "output/final/all_countries_risk.geojson"))
+ofile <- file.path(dir, "output/final/all_countries_risk.geojson")
+unlink(ofile)
+st_write(asj, ofile)
 
 # zip everything for share
 zz <- list.files(file.path(dir, "output/final"), pattern = ".geojson", full.names = TRUE)
