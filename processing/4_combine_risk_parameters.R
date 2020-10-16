@@ -75,3 +75,117 @@ zname <- paste0("all_countries_geojson_", Sys.time(), ".zip")
 zname <- gsub(":| ","_",zname)
 zip(file.path(dir, "output/final", zname), zz, flags = " a -tzip",
     zip = "C:\\Program Files\\7-Zip\\7Z")
+
+
+
+############################################################################################
+# Data Analysis
+library(igraph) # build network
+library(spdep) # builds network
+library(spatialreg)
+library(raster)
+library(tmap)
+
+meanObeseRiskNeighbor <- function(iso, asj){
+  cat("processing ", iso, "\n")
+  asjs <- asj[asj$iso3==iso,]
+  dds <- as.data.frame(asjs)
+  cnd <- is.na(dds$obese30_35_risk_wt)|is.na(dds$obese35_40_risk_wt)|is.na(dds$obese40over_risk_wt)
+  vmiss <- sum(cnd)
+  
+  if(vmiss>0){
+    v <- getData("GADM", country = iso, level = 2, path = file.path(dir, "processed", iso))
+    # find the ones with missing value
+    adms <- v$NAME_2[cnd]
+    vd <- findNeighbor(v)
+    orm <- lapply(adms, findNeighborMean, vd, k=3, dds)
+    orm <- do.call(rbind, orm)
+    asjs[cnd, grep("obese",colnames(asjs))] <- orm[,grep("obese",colnames(orm))]
+    return(asjs)
+  } else{
+    return(asjs)
+  }
+}
+
+
+findNeighborMean <- function(adm, vd, k=3, dds){
+  # cat("processing ", adm)
+  sa <- vd[,c("NAME_2", adm)]
+  # find the closest neighbor
+  nadms <- sa$NAME_2[sa@data[,2,drop=TRUE] < k]
+  or <- dds[dds$NAME_2 %in% nadms, grep("obese",colnames(dds))]
+  or <- data.frame(NAME_2=adm, t(colMeans(or, na.rm=TRUE)))
+  return(or)
+}
+
+
+# https://mikeyharper.uk/calculating-neighbouring-polygons-in-r/
+findNeighbor <- function(v){
+  nb_q <- poly2nb(v)
+  
+  # Sparse matrix
+  nb_B <- nb2listw(nb_q, style="B", zero.policy=TRUE)
+  B <- as(nb_B, "symmetricMatrix")
+  
+  # Calculate shortest distance
+  g1 <- graph.adjacency(B, mode="undirected")
+  sp_mat <- shortest.paths(g1)
+  
+  # Name used to identify data
+  referenceCol <- v$NAME_2
+  
+  # Rename spatial matrix
+  sp_mat2 <- as.data.frame(sp_mat)
+  sp_mat2$id <- rownames(v@data)
+  names(sp_mat2) <- paste0(referenceCol)
+  # Add distance to shapefile data
+  v@data <- cbind(v@data, sp_mat2)
+  v@data$id <- rownames(v@data)
+  return(v)
+}
+
+
+# fill missing values for obesity risk using mean values from neighbors
+dir <- "C:/Users/anibi/Documents/work/covid_hotspot/data"
+# # country
+countries <- c("Bangladesh", "Ethiopia", "Ghana", "Guatemala",
+               "Honduras", "Kenya", "Mali", "Nepal",
+               "Niger", "Nigeria", "Senegal", "Uganda")
+iso3 <- c("BGD", "ETH", "GHA", "GTM", "HND", "KEN", "MLI", "NPL", "NER", "NGA", "SEN", "UGA")
+
+ofile <- file.path(dir, "output/final/all_countries_risk.geojson")
+asj <- st_read(ofile)
+
+vv <- lapply(iso3, meanObeseRiskNeighbor, asj)
+vasj <- do.call(rbind, vv)
+
+ofile1 <- file.path(dir, "output/final/all_countries_risk_obs_imputed.geojson")
+unlink(ofile1)
+st_write(vasj, ofile1)
+
+# predict missing values for obesity risk using the population structure
+# the model is trained on each country
+# ciso <- data.frame(country = countries, iso = iso3, stringsAsFactors = FALSE)
+# 
+# ofile <- file.path(dir, "output/final/all_countries_risk.geojson")
+# asj <- st_read(ofile)
+# age <- read.csv(file.path(dir,"processed", "all_country_pop_stat.csv"),
+#                 stringsAsFactors = FALSE)
+# 
+# bmi <- c("obese30_35_risk_wt", "obese35_40_risk_wt", "obese40over_risk_wt")
+# 
+# dd <- asj[,c("country","NAME_1","NAME_2",
+#             "obese30_35_risk_wt", "obese35_40_risk_wt", "obese40over_risk_wt")]
+# 
+# dd <- merge(as.data.frame(dd), age, by.x = c("country","NAME_1","NAME_2"),
+#             by.y = c("NAME_0","NAME_1","NAME_2"),
+#             all.x=TRUE)
+# 
+# tp <- rowSums(dds[,grep("global",colnames(dds))], na.rm = TRUE)
+# dds <- dd[dd$country=="Ethiopia",]
+# dds <- data.frame(dds, total_population = tp)
+# train <- dds[!is.na(dds$obese30_35_risk_wt),]
+# test <- dds[is.na(dds$obese30_35_risk_wt),]
+# 
+# 
+# lm(train$obese30_35_risk_wt ~ train$global_f_40_2020_1km/train$total_population)
