@@ -4,6 +4,7 @@
 # there was name matching issues with the csv statistics provided by ihme
 # so I decided to recompute the statistics from ihme raster data using GADM level 2 boundary
 library(terra)
+library(raster)
 
 getWashScore <- function(iso, dir){
   cat("processing wash score", iso, "\n")
@@ -16,7 +17,8 @@ getWashScore <- function(iso, dir){
   toremove <- "IHME_LMIC_WASH_2000_2017_|_Y2020M06D02"
   
   # files
-  ff <- list.files(datadir, pattern = ".TIF", full.names = TRUE)
+  ff <- list.files(datadir, pattern = glob2rx("*MEAN_2017_Y2020M06D02*.TIF"), 
+                   full.names = TRUE)
   # read raster
   rr <- rast(ff)
   names(rr) <- gsub(toremove, "", names(rr))
@@ -29,7 +31,7 @@ getWashScore <- function(iso, dir){
   # summary stat for each district
   wstat <- extract(rr, vct, fun = mean, na.rm = TRUE)
   wstat <- wstat[,2:ncol(wstat)]
-  wstat <- 100 - wstat
+  wstat[,1:4] <- 100 - wstat[,1:4]
   colnames(wstat) <- paste0(colnames(wstat), "_no_access")
   
   wstat <- data.frame(NAME_1 = v$NAME_1, NAME_2 = v$NAME_2, wstat, stringsAsFactors = FALSE)
