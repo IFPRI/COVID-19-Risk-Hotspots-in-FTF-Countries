@@ -44,6 +44,7 @@ getBMIRisk <- function(iso, dir){
   bmis$obese30_35_risk <- bmis$obese30_35*1.05*bmis$n
   bmis$obese35_40_risk <- bmis$obese35_40*1.40*bmis$n
   bmis$obese40over_risk <- bmis$obese40over*1.92*bmis$n
+  bmis$obese_norisk <- (1-(bmis$obese30_35+bmis$obese35_40+bmis$obese40over))*bmis$n
   
   # convert to spatial object
   coordinates(bmis) = ~  longnum + latnum
@@ -67,7 +68,9 @@ getBMIRisk <- function(iso, dir){
   bmiag <- bmis@data %>% group_by(NAME_1, NAME_2) %>%
               summarise(obese30_35_risk = sum(obese30_35_risk, na.rm = TRUE),
                         obese35_40_risk = sum(obese35_40_risk, na.rm = TRUE),
-                        obese40over_risk = sum(obese40over_risk, na.rm = TRUE))
+                        obese40over_risk = sum(obese40over_risk, na.rm = TRUE),
+                        obese_norisk = sum(obese_norisk, na.rm = TRUE),
+                        n_total = sum(n, na.rm=TRUE))
 
   
   # if any of the sample point is outside are outside
@@ -85,9 +88,9 @@ getBMIRisk <- function(iso, dir){
   
   # standardize by women population
   bmiag <- merge(popstat, bmiag, by = c("NAME_1","NAME_2"), all.x = TRUE)
-  bmiag$obese30_35_risk_wt <- bmiag$obese30_35_risk/bmiag$women_pop_15_45
-  bmiag$obese35_40_risk_wt <- bmiag$obese35_40_risk/bmiag$women_pop_15_45
-  bmiag$obese40over_risk_wt <- bmiag$obese40over_risk/bmiag$women_pop_15_45
+  # bmiag$obese30_35_risk_wt <- bmiag$obese30_35_risk/bmiag$women_pop_15_45
+  # bmiag$obese35_40_risk_wt <- bmiag$obese35_40_risk/bmiag$women_pop_15_45
+  # bmiag$obese40over_risk_wt <- bmiag$obese40over_risk/bmiag$women_pop_15_45
   
   # save as csv 
   # v <- merge(v, bmiag, all.x = TRUE, by = "NAME_2")
@@ -107,6 +110,7 @@ execFunction <- function (iso3, dir) {
 
 lapply(iso3, execFunction, dir)
 
+lapply("ETH", execFunction, dir)
 # library(future.apply)
 # plan(multisession, workers = 4)
 # future_lapply(iso, getBMIRisk, indir, odir)
@@ -147,13 +151,16 @@ getBMIRiskbyADM <- function(iso, dir){
   bmis$obese30_35_risk <- bmis$obese30_35*1.05*bmis$n
   bmis$obese35_40_risk <- bmis$obese35_40*1.40*bmis$n
   bmis$obese40over_risk <- bmis$obese40over*1.92*bmis$n
+  bmis$obese_norisk <- (1-(bmis$obese30_35+bmis$obese35_40+bmis$obese40over))*bmis$n
   
   # compute sum across the admin
   
   bmiag <- bmis %>% group_by(region) %>%
     summarise(obese30_35_risk = sum(obese30_35_risk, na.rm = TRUE),
               obese35_40_risk = sum(obese35_40_risk, na.rm = TRUE),
-              obese40over_risk = sum(obese40over_risk, na.rm = TRUE))
+              obese40over_risk = sum(obese40over_risk, na.rm = TRUE),
+              obese_norisk = sum(obese_norisk, na.rm = TRUE),
+              n_total = sum(n, na.rm=TRUE))
   
   # total population women of child bearing age
   r <- file.path(datadir, paste0(iso,"_women_agegroup_15_45_1km.tif"))
@@ -171,10 +178,10 @@ getBMIRiskbyADM <- function(iso, dir){
   # standardize by women population
   # merge by admin 1 names, but divide by pop estimate to get admin 2 level risk
   bmiag <- merge(popstat, bmiag, by.x = "NAME_1", by.y = "region", all.x = TRUE)
-  bmiag$obese30_35_risk_wt <- bmiag$obese30_35_risk/bmiag$women_pop_15_45
-  bmiag$obese35_40_risk_wt <- bmiag$obese35_40_risk/bmiag$women_pop_15_45
-  bmiag$obese40over_risk_wt <- bmiag$obese40over_risk/bmiag$women_pop_15_45
-  
+  # bmiag$obese30_35_risk_wt <- bmiag$obese30_35_risk/bmiag$women_pop_15_45
+  # bmiag$obese35_40_risk_wt <- bmiag$obese35_40_risk/bmiag$women_pop_15_45
+  # bmiag$obese40over_risk_wt <- bmiag$obese40over_risk/bmiag$women_pop_15_45
+  # 
   # save as csv 
   # v <- merge(v, bmiag, all.x = TRUE, by = "NAME_2")
   write.csv(bmiag, 

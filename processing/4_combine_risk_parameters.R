@@ -90,7 +90,7 @@ meanObeseRiskNeighbor <- function(iso, asj){
   cat("processing ", iso, "\n")
   asjs <- asj[asj$iso3==iso,]
   dds <- as.data.frame(asjs)
-  cnd <- is.na(dds$obese30_35_risk_wt)|is.na(dds$obese35_40_risk_wt)|is.na(dds$obese40over_risk_wt)
+  cnd <- is.na(dds$obese30_35_risk)|is.na(dds$obese35_40_risk)|is.na(dds$obese40over_risk)|is.na(dds$n_total)
   vmiss <- sum(cnd)
   
   if(vmiss>0){
@@ -100,7 +100,7 @@ meanObeseRiskNeighbor <- function(iso, asj){
     vd <- findNeighbor(v)
     orm <- lapply(adms, findNeighborMean, vd, k=3, dds)
     orm <- do.call(rbind, orm)
-    asjs[cnd, grep("obese",colnames(asjs))] <- orm[,grep("obese",colnames(orm))]
+    asjs[cnd, grep("obese|n_total",colnames(asjs))] <- orm[,grep("obese|n_total",colnames(orm))]
     return(asjs)
   } else{
     return(asjs)
@@ -113,7 +113,8 @@ findNeighborMean <- function(adm, vd, k=3, dds){
   sa <- vd[,c("NAME_2", adm)]
   # find the closest neighbor
   nadms <- sa$NAME_2[sa@data[,2,drop=TRUE] < k]
-  or <- dds[dds$NAME_2 %in% nadms, grep("obese",colnames(dds))]
+  # colnames(dds)[colSums(is.na(dds)) > 0]
+  or <- dds[dds$NAME_2 %in% nadms, grep("obese|n_total",colnames(dds))]
   or <- data.frame(NAME_2=adm, t(colMeans(or, na.rm=TRUE)))
   return(or)
 }
